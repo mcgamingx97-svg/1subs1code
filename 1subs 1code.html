@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>1subs 1code challenge</title>
+<style>
+    body { 
+        margin: 0; 
+        overflow: hidden; 
+        background: #0f0f13; 
+        font-family: system-ui, sans-serif; 
+        color: white;
+        touch-action: none;
+    }
+    #game-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+    }
+    #ui-layer {
+        position: absolute;
+        top: 20px;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        z-index: 10;
+        pointer-events: none;
+    }
+    .title { font-size: 16px; letter-spacing: 3px; color: #aaa; text-transform: uppercase; margin-bottom: 10px; }
+    .score-box { font-size: 48px; font-weight: bold; color: #00e5ff; text-shadow: 0 0 15px #00e5ff; transition: transform 0.1s; }
+    
+    #player {
+        position: absolute;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80px;
+        height: 15px;
+        background: #00e5ff;
+        border-radius: 10px;
+        box-shadow: 0 0 15px #00e5ff;
+        z-index: 5;
+    }
+
+    .item {
+        position: absolute;
+        font-size: 24px;
+        font-weight: bold;
+        text-align: center;
+        width: 30px;
+        height: 30px;
+        transform: translateX(-50%);
+        z-index: 4;
+    }
+    .code { color: #00e5ff; text-shadow: 0 0 10px #00e5ff; }
+    .bug { font-size: 28px; }
+    
+    #game-over {
+        display: none;
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(15, 15, 19, 0.9);
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 20;
+    }
+    #game-over h1 { color: #ff3366; text-shadow: 0 0 15px #ff3366; margin-bottom: 10px;}
+    #game-over p { font-size: 20px; margin-bottom: 20px; }
+    .final-number { font-size: 36px; font-weight: bold; color: #00e5ff; }
+    
+    button {
+        padding: 12px 24px;
+        font-size: 16px;
+        background: transparent;
+        color: #00e5ff;
+        border: 2px solid #00e5ff;
+        border-radius: 8px;
+        cursor: pointer;
+        box-shadow: 0 0 10px #00e5ff inset;
+        transition: 0.3s;
+    }
+    button:hover { background: #00e5ff; color: #0f0f13; }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui-layer">
+        <div class="title">1subs 1code challenge</div>
+        <div class="score-box" id="score">24</div>
+    </div>
+    
+    <div id="player"></div>
+    
+    <div id="game-over">
+        <h1>ช่องปลิวแล้ว! (โดนบัค)</h1>
+        <p>ยอดปัจจุบัน: <span class="final-number" id="final-score"></span></p>
+        <button onclick="startGame()">ลองใหม่ (Restart)</button>
+    </div>
+</div>
+
+<script>
+    const container = document.getElementById('game-container');
+    const player = document.getElementById('player');
+    const scoreEl = document.getElementById('score');
+    const gameOverScreen = document.getElementById('game-over');
+    const finalScoreEl = document.getElementById('final-score');
+
+    let score = 24;
+    let gameInterval;
+    let items = [];
+    let isGameOver = false;
+    let playerX = window.innerWidth / 2;
+    
+    function movePlayer(e) {
+        if (isGameOver) return;
+        let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        playerX = Math.max(40, Math.min(window.innerWidth - 40, clientX));
+        player.style.left = playerX + 'px';
+    }
+
+    window.addEventListener('mousemove', movePlayer);
+    window.addEventListener('touchmove', movePlayer);
+
+    function createItem() {
+        if (isGameOver) return;
+        
+        const item = document.createElement('div');
+        item.classList.add('item');
+        
+        const isBug = Math.random() < 0.2; 
+        
+        if (isBug) {
+            item.innerHTML = '🐛';
+            item.classList.add('bug');
+            item.dataset.type = 'bug';
+        } else {
+            const codes = ['</>', '{}', '[]', '()', '#'];
+            item.innerHTML = codes[Math.floor(Math.random() * codes.length)];
+            item.classList.add('code');
+            item.dataset.type = 'code';
+        }
+
+        let startX = Math.random() * (window.innerWidth - 40) + 20;
+        item.style.left = startX + 'px';
+        item.style.top = '-30px';
+        
+        container.appendChild(item);
+        items.push({ el: item, y: -30, x: startX, speed: Math.random() * 3 + 2 });
+    }
+
+    function endGame() {
+        isGameOver = true;
+        clearInterval(gameInterval);
+        finalScoreEl.innerText = score;
+        gameOverScreen.style.display = 'flex';
+    }
+
+    function gameLoop() {
+        if (isGameOver) return;
+
+        let playerRect = player.getBoundingClientRect();
+
+        for (let i = items.length - 1; i >= 0; i--) {
+            let item = items[i];
+            item.y += item.speed;
+            item.el.style.top = item.y + 'px';
+
+            let itemRect = item.el.getBoundingClientRect();
+            if (
+                itemRect.bottom >= playerRect.top &&
+                itemRect.top <= playerRect.bottom &&
+                itemRect.right >= playerRect.left &&
+                itemRect.left <= playerRect.right
+            ) {
+                if (item.el.dataset.type === 'code') {
+                    score++;
+                    scoreEl.innerText = score;
+                    scoreEl.style.transform = "scale(1.3)";
+                    setTimeout(() => scoreEl.style.transform = "scale(1)", 150);
+                } else if (item.el.dataset.type === 'bug') {
+                    endGame();
+                }
+                
+                item.el.remove();
+                items.splice(i, 1);
+                continue;
+            }
+
+            if (item.y > window.innerHeight) {
+                item.el.remove();
+                items.splice(i, 1);
+            }
+        }
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    function startGame() {
+        isGameOver = false;
+        score = 24; 
+        scoreEl.innerText = score;
+        gameOverScreen.style.display = 'none';
+        
+        items.forEach(item => item.el.remove());
+        items = [];
+        
+        clearInterval(gameInterval);
+        gameInterval = setInterval(createItem, 800);
+        
+        requestAnimationFrame(gameLoop);
+    }
+
+    startGame();
+</script>
+</body>
+</html>
